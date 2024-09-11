@@ -12,6 +12,7 @@
 
 double sizex = 816*4;
 double sizey = 816*2;
+double sizez = 816*2;
 bool PBC = true;
 double showPercentEvery=0.01; // 1.0 - every percent, 0.1 - ten times per percent
 
@@ -79,6 +80,14 @@ Vect radiusPBC(const Vect& a, const Vect& b){
             dist.y -= sizey;
         }
     }
+
+    if (fabs(dist.z) > sizez/2){
+        if (a.z < b.z){
+            dist.z += sizez;
+        } else {
+            dist.z -= sizez;
+        }
+    }
     
     return dist;
 }
@@ -87,14 +96,14 @@ double hamiltonianDipolarPBC(Part *a, Part *b)
 {
     Vect rij = radiusPBC(b->pos,a->pos);
     double r2, r, r5,E;
-    r2 = rij.x * rij.x + rij.y * rij.y;
-    r = sqrt(r2); //трудное место, заменить бы
+    r2 = rij.x * rij.x + rij.y * rij.y + rij.z * rij.z;
+    r = sqrt(r2);
     r5 = r2 * r2 * r; //радиус в пятой
     
     E = //энергия считается векторным методом, так как она не нужна для каждой оси
-            (( (a->m.x * b->m.x + a->m.y * b->m.y) * r2)
+            (( (a->m.x * b->m.x + a->m.y * b->m.y + a->m.z * b->m.z) * r2)
                 -
-                (3 * (b->m.x * rij.x + b->m.y * rij.y) * (a->m.x * rij.x + a->m.y * rij.y)  )) / r5;
+                (3 * (b->m.x * rij.x + b->m.y * rij.y + b->m.z * rij.z) * (a->m.x * rij.x + a->m.y * rij.y + a->m.z * rij.z)  )) / r5;
     return E;
 }
 

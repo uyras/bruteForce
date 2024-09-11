@@ -4,31 +4,24 @@
 #include <vector>
 #include <random>
 #include <cmath>
-//#include <mpi.h>
-#include "PartArray.h"
-#include "Part.h"
 #include <string>
 #include <string.h>
 #include <bitset>
 #include <omp.h>
-
-#define L 24
-#define N 24
-#define RADIUS 100
+#include "PartArray.h"
+#include "Part.h"
 
 void printhelp(FILE* f){
     const string text = 
         "Program for calculating DOS of the magnetic system with dipole-dipole\n" 
-        "interaction with mpi-interconnect\n" 
+        "interaction with OMP parallelism\n" 
         "\n"
         "Usage:\n"
-        "mpirun -np <N> ./bruteForce <filename>\n"
+        "./bruteForce <filename>\n"
         "        <E_min> <E_max> [<precision> [<range> [<output>]]]\n"
         "\n"
-        "where mpirun might be any mpi execution program, even the srun\n"
         "\n"
         "avaliable params:\n"
-        "    <N>         -   Number of MPI processes\n"
         "    <filename>  -   Path to text file with structure of the system. \n"
         "                    File format is described below.\n"
         "    <E_min>     -   Approximage minimal energy of the system. May be setted\n"
@@ -61,7 +54,7 @@ void printhelp(FILE* f){
         "at <X>,<Y> position, so it is relative.\n"
         "Feld delimiter is space or tab symbol.\n"
         "Empty lines and lines started from '#' are skipped.\n";
-    fprintf(f,text.c_str());
+    fprintf(f,"%s",text.c_str());
 }
 
 int main(int argc, char* argv[])
@@ -206,7 +199,16 @@ int main(int argc, char* argv[])
             unsigned long long everyCounter = every;
             unsigned percent = 0;
 
-            sys.state.fromString(std::bitset< 64 >( stateFrom ).to_string());
+            string stateStr = std::bitset< 64 >( stateFrom ).to_string().substr(64-sys.size());
+            reverse(stateStr.begin(),stateStr.end());
+            sys.state.fromString(stateStr);
+            /*#pragma omp critical
+            {
+                cout<<thread<<" "<<sys.state.toString()<<" "<<
+                    stateStr<<" "<<
+                    stateFrom<<endl;
+                cout.flush();
+            }*/
 
             if (thread==0) cerr<<"# ";
             for (binState=stateFrom+1;binState<=stateTo;++binState){
@@ -242,7 +244,7 @@ int main(int argc, char* argv[])
     /////////// print the dos
     for (unsigned i=0;i<memsize;++i){
         if (dosGlob[i]>0){
-            fprintf(ofile,"%f\t%d\n",(i/dividerGlob)+emin,dosGlob[i]);
+            fprintf(ofile,"%f\t%llu\n",(i/dividerGlob)+emin,dosGlob[i]);
         }
     }
 

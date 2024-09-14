@@ -77,6 +77,7 @@ int main(int argc, char* argv[])
     if (PBC) setPBCEnergies(sys);
 
     emax = calcEmax(sys);
+    emax += emax*0.01; //add 1% to the value
 	emin = -emax;
 
     if (sys.size()>64){

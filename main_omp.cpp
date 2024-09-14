@@ -16,6 +16,11 @@ using namespace argumentum;
 using namespace std;
 
 
+unsigned int grayencode(unsigned int g) 
+{
+    return g ^ (g >> 1);
+}
+
 FILE * ofile;
 int main(int argc, char* argv[])
 {
@@ -209,7 +214,7 @@ int main(int argc, char* argv[])
         unsigned long long everyCounter = every;
         unsigned percent = 0;
 
-        string stateStr = std::bitset< 64 >( stateFrom ).to_string().substr(64-sys.size());
+        string stateStr = std::bitset< 64 >( grayencode(stateFrom) ).to_string().substr(64-sys.size());
         reverse(stateStr.begin(),stateStr.end());
         sys.state.fromString(stateStr);
         /*#pragma omp critical
@@ -256,7 +261,8 @@ int main(int argc, char* argv[])
     /////////// print the dos
     for (unsigned i=0;i<memsize;++i){
         if (dosGlob[i]>0){
-            fprintf(ofile,"%f\t%llu\n",(i/dividerGlob)+emin,dosGlob[i]);
+            // fprintf(ofile,"%f\t%llu\n",(i/dividerGlob)+emin,dosGlob[i]);
+            fprintf(ofile,"%.*f\t%llu\n",precision,(i/dividerGlob)+emin,dosGlob[i]);
 			chek += dosGlob[i];
         }
     }

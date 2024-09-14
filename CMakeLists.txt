@@ -14,5 +14,5 @@ include_directories("partsEngine" "argumentum/include")
 add_executable(bruteForce_omp main_omp.cpp common.cpp)
 target_link_libraries(bruteForce_omp PRIVATE partsEngine argumentum OpenMP::OpenMP_CXX)
 
-add_executable(bruteForce_seq main_seq.cpp)
-target_link_libraries(bruteForce_seq partsEngine)
+add_executable(bruteForce_seq main_seq.cpp common.cpp)
+target_link_libraries(bruteForce_seq partsEngine argumentum)

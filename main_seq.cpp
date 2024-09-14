@@ -5,186 +5,54 @@
 #include <random>
 #include <cmath>
 #include <string>
-#include <string.h>
+#include <cstring>
 #include <bitset>
-#include "PartArray.h"
-#include "Part.h"
-
-double sizex = 816*4;
-double sizey = 816*2;
-double sizez = 816*2;
-bool PBC = true;
-double showPercentEvery=0.01; // 1.0 - every percent, 0.1 - ten times per percent
-
-void printhelp(FILE* f){
-    const string text = 
-        "Program for calculating DOS of the magnetic system with dipole-dipole\n" 
-        "interaction, non-paralle code, but with PBC\n" 
-        "\n"
-        "Usage:\n"
-        "./bruteForce_seq <filename>\n"
-        "        <E_min> <E_max> [<precision> [<range> [<output>]]]\n"
-        "\n"
-        "\n"
-        "avaliable params:\n"
-        "    <filename>  -   Path to text file with structure of the system. \n"
-        "                    File format is described below.\n"
-        "    <E_min>     -   Approximage minimal energy of the system. May be setted\n"
-        "                    lower than actual value with a small margin.\n"
-        "    <E_max>     -   Approx maximal energy level of the system. May be setted\n"
-        "                    higher than actual value with a small margin.\n"
-        "    <precision> -   Number of digits after decimal point for DOS storage.\n"
-        "                    All numbers after this value will be rounded.\n"
-        "                    Default is 0. The value may be below 0.\n"
-        "    <range>     -   Maximal distance between particles which interaction\n"
-        "                    counts in total energy. Partices located further are \n"
-        "                    considered non-interacting. \n"
-        "                    Default value is 0 which means all-to-all interaction.\n"
-        "    <output>    -   Resulting file name where the program writes DOS.\n"
-        "                    By default program prints DOS to STDOUT (to screen).\n"
-
-        "\n"
-        "Parameters <E_min> <E_max> and <precision> mostly affects on the RAM consumption.\n"
-        "The total requred memory for each MPI process is calculated as^\n"
-        "M=((<E_max>-<E_min>)*10^<precision>+1)*sizeof(long long).\n"
-        "Typically sizeof(long) is 8 bytes.\n"
-        "\n"
-        "Input file format:\n"
-        "It should be the text file, csv-like. Each dipole is defined in one line.\n"
-        "Total lines number in file equals the number of dipoles in system.\n"
-        "\n"
-        "Fieds in single line:\n"
-        "<X> <Y> <Mx> <MY>\n"
-        "<X> and <Y> are coordinates of dipole,\n"
-        "<Mx> and <My> are magnetic vector coordinates. This vector starts\n" 
-        "at <X>,<Y> position, so it is relative.\n"
-        "Feld delimiter is space or tab symbol.\n"
-        "Empty lines and lines started from '#' are skipped.\n";
-    fprintf(f,"%s",text.c_str());
-}
-
-Vect radiusPBC(const Vect& a, const Vect& b){
-    Vect dist = a - b;
-    if (fabs(dist.x) > sizex/2){
-        if (a.x < b.x){
-            dist.x += sizex;
-        } else {
-            dist.x -= sizex;
-        }
-    }
-
-    if (fabs(dist.y) > sizey/2){
-        if (a.y < b.y){
-            dist.y += sizey;
-        } else {
-            dist.y -= sizey;
-        }
-    }
-
-    if (fabs(dist.z) > sizez/2){
-        if (a.z < b.z){
-            dist.z += sizez;
-        } else {
-            dist.z -= sizez;
-        }
-    }
-    
-    return dist;
-}
-
-double hamiltonianDipolarPBC(Part *a, Part *b)
-{
-    Vect rij = radiusPBC(b->pos,a->pos);
-    double r2, r, r5,E;
-    r2 = rij.x * rij.x + rij.y * rij.y + rij.z * rij.z;
-    r = sqrt(r2);
-    r5 = r2 * r2 * r; //радиус в пятой
-    
-    E = //энергия считается векторным методом, так как она не нужна для каждой оси
-            (( (a->m.x * b->m.x + a->m.y * b->m.y + a->m.z * b->m.z) * r2)
-                -
-                (3 * (b->m.x * rij.x + b->m.y * rij.y + b->m.z * rij.z) * (a->m.x * rij.x + a->m.y * rij.y + a->m.z * rij.z)  )) / r5;
-    return E;
-}
-
-void setPBCEnergies(PartArray & sys)
-{
-    sys.E();
-    // first update all neighbours
-    sys.neighbours.clear();
-
-    //определяем соседей частицы
-    if (sys.interactionRange() != 0.){ //только если не все со всеми
-        sys.neighbours.resize(sys.size());
-        Part *part, *temp;
-        for (unsigned i=0; i<sys.size(); i++){
-            sys.neighbours[i].clear();
-            part = sys[i];
-            vector<Part*>::iterator iter = sys.parts.begin();
-            while(iter!=sys.parts.end()){
-                temp = *iter;
-                if (temp != part && radiusPBC(part->pos,temp->pos).length() < sys.interactionRange()){
-                    sys.neighbours[i].push_front(temp);
-                }
-                iter++;
-            }
-        }
-    }
-    sys.changeSystem();
-
-    //then set the hamiltonian
-    sys.setHamiltonian(hamiltonianDipolarPBC);
-}
+#include <PartArray.h>
+#include <Part.h>
+#include "common.h"
 
 
+double showPercentEvery=1; // 1.0 - every percent, 0.1 - ten times per percent
+
+FILE * ofile;
 int main(int argc, char* argv[])
 {
-    bool dbg=true;
 
-    double irange=0;
-    double emin,emax;
-    int precision=0;
-    FILE * ofile = stdout;
+    auto parser = argument_parser{};
+    parser.config().program( argv[0] ).description( "Program for calculating DOS of the magnetic system with dipole-dipole "
+        "interaction in sequential mode" );
+    configParser(parser);
 
     /////////// read command-line params
-    if (argc<4){
-        printhelp(stdout);
-        return 0;
-    }
+    if ( !parser.parse_args( argc, argv, 1 ) )
+      return 1;
 
-    ifstream f(argv[1]);
-    if (!f.is_open()) {
-        cout<<"file read error: "<<argv[1]<<endl;
-        printhelp(stdout);
-        return 0;
-    }
-
-    emin=atof(argv[2]);
-    emax=atof(argv[3]);
-
-    if (argc>=5){
-        precision=atoi(argv[4]);
-    }
-
-    if (argc>=6){
-        irange=atof(argv[5]);
-    }
-
-    if (argc>=7){
-        ofile = fopen(argv[6],"w");
+    if (!outFilename.empty()){
+        ofile = fopen(outFilename.c_str(),"w");
         if (ofile==NULL){
-            cout<<"error open the file: "<<argv[6];
-            return 0;
+            cout<<"error open the file: "<<outFilename;
+            return 1;
         }
+    } else {
+        ofile = stdout;
     }
+
+    PBC = sizePBC.x || sizePBC.y || sizePBC.z;
 
 
     /////////// import the system
     PartArray sys;
 
-    if(!strcmp(argv[1] + strlen(argv[1]) - strlen(".mfsys"), ".mfsys"))
-    {
-        sys.load(string(argv[1]));
+    ifstream f(inFilename);
+    if (!f.is_open()) {
+        cout<<"file read error: "<<inFilename<<endl;
+        return 1;
+    }
+
+    const char* inFilename_c = inFilename.c_str();
+    if(!strcmp(inFilename_c + strlen(inFilename_c) - strlen(".mfsys"), ".mfsys"))
+	{
+        sys.load(inFilename);
         sys.state.hardReset();
     } else {
         string tmp;
@@ -208,16 +76,27 @@ int main(int argc, char* argv[])
     sys.setInteractionRange(irange);
     if (PBC) setPBCEnergies(sys);
 
-
-    if (dbg){
-        cout<<"file '"<<argv[1]<<"': imported "<<sys.size()<<" parts"<<endl;
-        cout<<"Energy: "<<sys.E()<<" range: "<<irange<<endl;
-    }
+    emax = calcEmax(sys);
+	emin = -emax;
 
     if (sys.size()>64){
         cout<<"System size is more than 64. It is impossible task! Exiting."<<endl;
         return 0;
     }
+	
+	cout << "# file: " << inFilename<<endl;
+    cout << "#    N: " << sys.size()<<endl;
+    cout << "#    E: " << sys.E()<<endl;
+	cout << "# emin: " << emin << endl;
+	cout << "# emax: " << emax << endl;
+    if (PBC){
+        config::Instance()->set3D();
+        cout<<"# PBC enabled; size: "<<sizePBC<<endl;
+    } else {
+        cout<<"# PBC disabled"<<endl;
+    }
+	cout << "# precision: " << precision << endl;	
+	cout << "# range: " << irange << endl;
 
     /////////// reserve the memory
     const double divider=pow(10,precision);
@@ -303,20 +182,26 @@ int main(int argc, char* argv[])
         --everyCounter;
         if (everyCounter==0){
             everyCounter = every;
-            printf("%f%%..",percent*showPercentEvery);
-            fflush(stdout);
+            cerr<<percent*showPercentEvery<<"%..";
+            cerr.flush();
             ++percent;
             eOld = sys.E();
         }
     }
+    cerr<<"\n";
     printf("\n");
 
+	unsigned int chek = 0;
     /////////// print the dos
     for (unsigned i=0;i<memsize;++i){
         if (dos[i]>0){
             fprintf(ofile,"%.*f\t%llu\n",precision,(i/divider)+emin,dos[i]);
+			chek += dos[i];
         }
     }
+
+	if (chek != pow(2, sys.size()))
+		cout << "ERROR sum(dos) != 2^N" << endl;
 
     delete[] dos;
 

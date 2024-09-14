@@ -8,7 +8,6 @@
 #include <cstring>
 #include <bitset>
 #include <omp.h>
-#include <argumentum/argparse.h>
 #include <PartArray.h>
 #include <Part.h>
 #include "common.h"
@@ -16,66 +15,14 @@
 using namespace argumentum;
 using namespace std;
 
-bool PBC;
-bool dbg;
 
-string inFilename;
-string outFilename;
-int precision;
-double irange;
-double emin,emax;
 FILE * ofile;
-
-
 int main(int argc, char* argv[])
 {
     auto parser = argument_parser{};
-    auto params = parser.params();
     parser.config().program( argv[0] ).description( "Program for calculating DOS of the magnetic system with dipole-dipole "
         "interaction with OMP parallelism" );
-
-    params.add_parameter(inFilename,  "input").nargs(1).required().metavar("INFILE{.mfsys|.txt}")
-        .help("Path to text file with structure of the system. File format is described below.");
-    params.add_parameter(precision,"-p","--precision").maxargs(1).default_value(0).metavar("INT")
-        .help("Number of digits after decimal point for DOS storage. "
-            "All numbers after this value will be rounded. "
-            "Default is 0. The value may be below 0.");
-    params.add_parameter(irange,"-r","--range").maxargs(1).default_value(999999).metavar("DOUBLE")
-        .help("Maximal distance between particles which interaction counts "
-        "in total energy. Partices located further are considered "
-        "non-interacting.");
-    params.add_parameter(outFilename,"-o","--out").maxargs(1).default_value("").metavar("file.txt")
-        .help("Resulting file name where the program writes DOS."
-        "By default program prints DOS to STDOUT (to screen).");
-    params.add_parameter(sizePBC.x,"-x").maxargs(1).default_value(0)
-        .help("Size of the system along X axis for periodical boundary conditions"
-        "If set 0 then PBC along X-axis is not applied. Default 0.");
-    params.add_parameter(sizePBC.y,"-y").maxargs(1).default_value(0)
-        .help("Size of the system along Y axis for periodical boundary conditions"
-        "If set 0 then PBC along Y-axis is not applied. Default 0.");
-    params.add_parameter(sizePBC.z,"-z").maxargs(1).default_value(0)
-        .help("Size of the system along Z axis for periodical boundary conditions"
-        "If set 0 then PBC along Z-axis is not applied. Default 0.");
-    params.add_parameter(dbg,"-d","--debug")
-        .help("enable debug mode");
-
-    parser.config().epilog("Parameters <E_min> <E_max> and <precision> mostly affects on the RAM consumption. "
-        "<E_min> <E_max> are calculating automatically"
-        "The total requred memory for each openMP process is calculated as:\n"
-        "M=((<E_max>-<E_min>)*10^<precision>+1)*sizeof(long long).\n"
-        "Typically sizeof(long) is 8 bytes.\n"
-        "\n"
-        "Input file format:\n"
-        "It should be the text file, csv-like. Each dipole is defined in one line.\n"
-        "Total lines number in file equals the number of dipoles in system.\n"
-        "\n"
-        "Fieds in single line:\n"
-        "<X> <Y> <Mx> <MY>\n"
-        "<X> and <Y> are coordinates of dipole,\n"
-        "<Mx> and <My> are magnetic vector coordinates. This vector starts " 
-        "at <X>,<Y> position, so it is relative.\n"
-        "Feld delimiter is space or tab symbol.\n"
-        "Empty lines and lines started from '#' are skipped.");
+    configParser(parser);
 
     /////////// read command-line params
     if ( !parser.parse_args( argc, argv, 1 ) )

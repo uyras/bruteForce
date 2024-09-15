@@ -192,7 +192,7 @@ int main(int argc, char* argv[])
     cerr<<"\n";
     printf("\n");
 
-	unsigned int chek = 0;
+	unsigned long long chek = 0;
     /////////// print the dos
     for (unsigned i=0;i<memsize;++i){
         if (dos[i]>0){
@@ -201,8 +201,11 @@ int main(int argc, char* argv[])
         }
     }
 
-	if (chek != pow(2, sys.size()))
-		cout << "ERROR sum(dos) != 2^N" << endl;
+	if (chek != states*2){
+        cout << "ERROR!!!" << endl;
+		cout << "There are must be " << states*2 << "states." << endl;
+        cout << "But the total number of states is " << chek << "." << endl;
+    }
 
     delete[] dos;
 

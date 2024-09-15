@@ -16,7 +16,7 @@ using namespace argumentum;
 using namespace std;
 
 
-unsigned int grayencode(unsigned int g) 
+unsigned long long grayencode(unsigned long long g) 
 {
     return g ^ (g >> 1);
 }
@@ -256,7 +256,9 @@ int main(int argc, char* argv[])
         delete[] dos;
     }
 	printf("\n");
-	unsigned int chek = 0;
+	unsigned long long chek = 0;
+    unsigned long long totalStates=1;
+    totalStates = totalStates << N;
 
     /////////// print the dos
     for (unsigned i=0;i<memsize;++i){
@@ -267,8 +269,11 @@ int main(int argc, char* argv[])
         }
     }
 	
-	if (chek != pow(2, N))
-		cout << "ERROR sum(dos) != 2^N" << endl;
+	if (chek != totalStates){
+        cout << "ERROR!!!" << endl;
+		cout << "There are must be " << totalStates << "states." << endl;
+        cout << "But the total number of states is " << chek << "." << endl;
+    }
 
     delete[] dosGlob;
 
